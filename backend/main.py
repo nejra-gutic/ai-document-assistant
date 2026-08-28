@@ -1,7 +1,11 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+from backend.database import engine
+from backend import models
 
 app = FastAPI()
+
+models.Base.metadata.create_all(bind=engine)
 
 
 class DocumentCreate(BaseModel):
