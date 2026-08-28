@@ -16,7 +16,7 @@ def looks_like_question(text: str) -> bool:
 def extract_section_lines(
     pages: list[dict],
     start_title: str,
-    end_title: str
+    end_title: str | None = None
 ) -> list[dict]:
 
     section_lines = []
@@ -43,7 +43,7 @@ def extract_section_lines(
                     inside_section = True
 
                 # Pronašli smo početak sljedeće sekcije
-                if inside_section and end_title in line_text:
+                if inside_section and end_title and end_title in line_text:
                     return section_lines
 
                 if inside_section:
