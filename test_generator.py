@@ -1,0 +1,22 @@
+from src.rag.retriever import Retriever
+from src.rag.generator import build_prompt
+
+
+retriever = Retriever(
+    index_path="data/faiss.index",
+    metadata_path="data/metadata.json"
+)
+
+query = "Bir takım kaç kişiden oluşabilir?"
+
+results = retriever.retrieve(
+    query,
+    k=3
+)
+
+prompt = build_prompt(
+    query,
+    results
+)
+
+print(prompt)
