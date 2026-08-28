@@ -26,3 +26,9 @@ class VectorStore:
         )
 
         return distances[0], indices[0]
+
+    def save(self, path: str):
+        faiss.write_index(self.index, path)
+
+    def load(self, path: str):
+        self.index = faiss.read_index(path)
