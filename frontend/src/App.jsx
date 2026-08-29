@@ -7,6 +7,7 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [file, setFile] = useState(null);
   const [uploadMessage, setUploadMessage] = useState("");
+  const [uploading, setUploading] = useState(false);
 
   const handleUpload = async () => {
     if (!file) {
@@ -15,6 +16,9 @@ function App() {
 
     const formData = new FormData();
     formData.append("file", file);
+
+    setUploading(true);
+    setUploadMessage("");
 
     try {
       const response = await fetch(
@@ -33,6 +37,8 @@ function App() {
     } catch (error) {
       console.error(error);
       setUploadMessage("Upload failed.");
+    }finally {
+      setUploading(false);
     }
   };
 
@@ -89,9 +95,9 @@ function App() {
           <button
             type="button"
             onClick={handleUpload}
-            disabled={!file}
+            disabled={!file || uploading}
           >
-            Upload PDF
+            {uploading ? "Processing document..." : "Upload PDF"}
           </button>
 
           {uploadMessage && (

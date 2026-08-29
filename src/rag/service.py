@@ -15,6 +15,9 @@ class RAGService:
 
         self.generator = Generator()
 
+        self.history = []
+
+
     def ask_question(
         self,
         query: str,
@@ -29,13 +32,19 @@ class RAGService:
 
         # A = Augmentation
         prompt = build_prompt(
-            query,
-            results
+            query=query,
+            retrieved_results=results,
+            history=self.history
         )
 
         # G = Generation
         answer = self.generator.generate(
             prompt
         )
+
+        self.history.append({
+            "question": query,
+            "answer": answer
+        })
 
         return answer
