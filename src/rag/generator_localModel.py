@@ -1,10 +1,7 @@
-import os
-
-from dotenv import load_dotenv
-from google import genai
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
 
-load_dotenv()
+MODEL_NAME = "Qwen/Qwen2.5-1.5B-Instruct"
 
 
 def build_prompt(query: str, retrieved_results: list[dict]) -> str:
@@ -49,19 +46,33 @@ RESPONSE:
 
 class Generator:
     def __init__(self):
-        api_key = os.getenv("GEMINI_API_KEY")
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            MODEL_NAME
+        )
 
-        if not api_key:
-            raise ValueError("GEMINI_API_KEY is not set.")
-
-        self.client = genai.Client(
-            api_key=api_key
+        self.model = AutoModelForCausalLM.from_pretrained(
+            MODEL_NAME
         )
 
     def generate(self, prompt: str) -> str:
-        interaction = self.client.interactions.create(
-            model="gemini-3.6-flash",
-            input=prompt
+        inputs = self.tokenizer(
+            prompt,
+            return_tensors="pt"
         )
 
-        return interaction.output_text.strip()
+        outputs = self.model.generate(
+            **inputs,
+            max_new_tokens=100,
+            do_sample=False
+        )
+
+        input_length = inputs["input_ids"].shape[1]
+
+        generated_tokens = outputs[0][input_length:]
+
+        generated_text = self.tokenizer.decode(
+            generated_tokens,
+            skip_special_tokens=True
+        )
+
+        return generated_text.strip()

@@ -1,5 +1,5 @@
 from src.rag.retriever import Retriever
-from src.rag.generator import build_prompt
+from src.rag.generator import build_prompt, Generator
 
 
 retriever = Retriever(
@@ -19,4 +19,9 @@ prompt = build_prompt(
     results
 )
 
-print(prompt)
+generator = Generator()
+
+answer = generator.generate(prompt)
+
+print("\nANSWER:")
+print(answer)
