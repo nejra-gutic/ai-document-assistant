@@ -1,25 +1,27 @@
-from fastapi import FastAPI, HTTPException
+import json
+
+import pymupdf
+
+from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from backend.database import engine
 from backend import models
-from src.rag.service import RAGService
-
-from fastapi.middleware.cors import CORSMiddleware
-
-from fastapi import UploadFile, File
-import pymupdf
-
-from src.rag.generic_chunker import split_into_chunks
-
-import json
 
 from src.rag.embedder import Embedder
-from src.rag.vector_store import VectorStore
-from src.rag.retriever import Retriever
+from src.rag.generic_chunker import split_into_chunks
+from src.rag.langchain_service import (
+    LangChainRAGService,
+    create_qa_documents,
+    create_documents,
+    create_vector_store,
+    create_retriever
+)
 
 
 app = FastAPI()
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -32,12 +34,37 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-models.Base.metadata.create_all(bind=engine)
 
-rag_service = RAGService(
-    fixed_index_path="data/faiss.index",
-    fixed_metadata_path="data/metadata.json"
+models.Base.metadata.create_all(
+    bind=engine
 )
+
+
+# --------------------------------------------------
+# Fixed RAG knowledge base
+# --------------------------------------------------
+
+with open(
+    "data/metadata.json",
+    "r",
+    encoding="utf-8"
+) as file:
+    qa_items = json.load(file)
+
+
+fixed_documents = create_qa_documents(
+    qa_items
+)
+
+
+embedder = Embedder()
+
+
+rag_service = LangChainRAGService(
+    documents=fixed_documents,
+    embedder=embedder
+)
+
 
 # --------------------------------------------------
 # Pydantic models
@@ -64,8 +91,14 @@ class ChatResponse(BaseModel):
 # --------------------------------------------------
 
 documents = [
-    {"id": 1, "name": "Company Handbook.pdf"},
-    {"id": 2, "name": "University Regulations.pdf"}
+    {
+        "id": 1,
+        "name": "Company Handbook.pdf"
+    },
+    {
+        "id": 2,
+        "name": "University Regulations.pdf"
+    }
 ]
 
 
@@ -101,14 +134,21 @@ def get_document(document_id: int):
     )
 
 
-@app.post("/documents", status_code=201)
-def create_document(document: DocumentCreate):
+@app.post(
+    "/documents",
+    status_code=201
+)
+def create_document(
+    document: DocumentCreate
+):
     new_document = {
         "id": len(documents) + 1,
         "name": document.name
     }
 
-    documents.append(new_document)
+    documents.append(
+        new_document
+    )
 
     return new_document
 
@@ -121,6 +161,7 @@ def update_document(
     for existing_document in documents:
         if existing_document["id"] == document_id:
             existing_document["name"] = document.name
+
             return existing_document
 
     raise HTTPException(
@@ -137,6 +178,7 @@ def partially_update_document(
     for existing_document in documents:
         if existing_document["id"] == document_id:
             existing_document["name"] = document.name
+
             return existing_document
 
     raise HTTPException(
@@ -146,10 +188,14 @@ def partially_update_document(
 
 
 @app.delete("/documents/{document_id}")
-def delete_document(document_id: int):
+def delete_document(
+    document_id: int
+):
     for document in documents:
         if document["id"] == document_id:
-            documents.remove(document)
+            documents.remove(
+                document
+            )
 
             return {
                 "message": "Document deleted successfully"
@@ -169,11 +215,12 @@ def delete_document(document_id: int):
     "/api/chat",
     response_model=ChatResponse
 )
-def chat(request: ChatRequest):
+def chat(
+    request: ChatRequest
+):
     try:
         answer = rag_service.ask_question(
-            request.question,
-            k=3
+            request.question
         )
 
         return ChatResponse(
@@ -183,21 +230,35 @@ def chat(request: ChatRequest):
     except Exception as error:
         error_message = str(error)
 
-        if "429" in error_message or "too_many_requests" in error_message:
+        if (
+            "429" in error_message
+            or "too_many_requests" in error_message
+        ):
             raise HTTPException(
                 status_code=429,
-                detail="AI service rate limit reached. Please try again shortly."
+                detail=(
+                    "AI service rate limit reached. "
+                    "Please try again shortly."
+                )
             )
 
         raise HTTPException(
             status_code=500,
-            detail="Something went wrong while generating the answer."
+            detail=(
+                "Something went wrong while "
+                "generating the answer."
+            )
         )
-    
-@app.post("/api/documents/upload")
-async def upload_document(file: UploadFile = File(...)):
-    global rag_service
 
+
+# --------------------------------------------------
+# PDF Upload
+# --------------------------------------------------
+
+@app.post("/api/documents/upload")
+async def upload_document(
+    file: UploadFile = File(...)
+):
     if file.content_type != "application/pdf":
         raise HTTPException(
             status_code=400,
@@ -216,49 +277,36 @@ async def upload_document(file: UploadFile = File(...)):
     for page in pdf:
         text += page.get_text()
 
-    chunks = split_into_chunks(text)
-
-    embeddings = rag_service.embedder.embed_texts(chunks)
-
-    vector_store = VectorStore(
-        dimension=embeddings.shape[1]
+    chunks = split_into_chunks(
+        text
     )
 
-    vector_store.add(embeddings)
-
-    vector_store.save(
-        "data/uploaded_faiss.index"
+    uploaded_documents = create_documents(
+        chunks
     )
 
-    metadata = []
-
-    for chunk in chunks:
-        metadata.append({
-            "text": chunk
-        })
-
-    with open(
-        "data/uploaded_metadata.json",
-        "w",
-        encoding="utf-8"
-    ) as metadata_file:
-        json.dump(
-            metadata,
-            metadata_file,
-            ensure_ascii=False,
-            indent=2
-        )
-
-    rag_service.uploaded_retriever = Retriever(
-        index_path="data/uploaded_faiss.index",
-        metadata_path="data/uploaded_metadata.json",
-        embedder=rag_service.embedder
+    uploaded_vector_store = create_vector_store(
+        documents=uploaded_documents,
+        embedder=embedder
     )
 
+    rag_service.uploaded_vector_store = uploaded_vector_store
+
+    rag_service.uploaded_retriever = create_retriever(
+        uploaded_vector_store
+    )
+
+    rag_service.history = []
+    
     return {
         "filename": file.filename,
         "number_of_chunks": len(chunks)
     }
+
+
+# --------------------------------------------------
+# Chat Reset
+# --------------------------------------------------
 
 @app.post("/api/chat/reset")
 def reset_chat():
