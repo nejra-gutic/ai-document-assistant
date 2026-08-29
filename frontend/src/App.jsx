@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import "./App.css";
 
 function App() {
@@ -8,6 +8,14 @@ function App() {
   const [file, setFile] = useState(null);
   const [uploadMessage, setUploadMessage] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [currentDocument, setCurrentDocument] = useState(null);
+  const messagesEndRef = useRef(null);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({
+      behavior: "smooth",
+    });
+  }, [messages, loading]);
 
   const handleUpload = async () => {
     if (!file) {
@@ -34,6 +42,10 @@ function App() {
       setUploadMessage(
         `${data.filename} uploaded successfully.`
       );
+
+      setCurrentDocument(data.filename);
+      setMessages([]);
+
     } catch (error) {
       console.error(error);
       setUploadMessage("Upload failed.");
@@ -106,6 +118,22 @@ function App() {
   }
 };
 
+const handleNewChat = async () => {
+  try {
+    await fetch(
+      "http://127.0.0.1:8000/api/chat/reset",
+      {
+        method: "POST",
+      }
+    );
+
+    setMessages([]);
+    setQuestion("");
+  } catch (error) {
+    console.error(error);
+  }
+};
+
   return (
     <main className="app">
       <div className="chat-card">
@@ -116,6 +144,15 @@ function App() {
             content.
           </p>
         </div>
+
+        <div className="chat-actions">
+        <button
+          type="button"
+          onClick={handleNewChat}
+        >
+          New chat
+        </button>
+      </div>
 
         <div className="upload-section">
           <input
@@ -136,6 +173,13 @@ function App() {
             <p>{uploadMessage}</p>
           )}
         </div>
+
+        {currentDocument && (
+          <div className="current-document">
+            <span>Current document:</span>
+            <strong>{currentDocument}</strong>
+          </div>
+        )}
 
         <form className="question-form" onSubmit={handleSubmit}>
           <textarea
@@ -176,6 +220,8 @@ function App() {
               <p>Thinking...</p>
             </div>
           )}
+
+          <div ref={messagesEndRef} />
         </div>
       </div>
     </main>

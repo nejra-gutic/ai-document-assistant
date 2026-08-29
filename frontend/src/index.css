@@ -108,3 +108,15 @@ textarea {
 .answer-card p {
   margin: 0;
 }
+
+.current-document {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.current-document strong {
+  color: #111827;
+}

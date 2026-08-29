@@ -260,3 +260,11 @@ async def upload_document(file: UploadFile = File(...)):
         "filename": file.filename,
         "number_of_chunks": len(chunks)
     }
+
+@app.post("/api/chat/reset")
+def reset_chat():
+    rag_service.history = []
+
+    return {
+        "message": "Chat history cleared"
+    }
