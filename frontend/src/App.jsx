@@ -145,21 +145,40 @@ const handleNewChat = async () => {
           </p>
         </div>
 
-        <div className="chat-actions">
-        <button
-          type="button"
-          onClick={handleNewChat}
-        >
-          New chat
-        </button>
-      </div>
+        <div className="document-bar">
+          {currentDocument && (
+            <div className="current-document">
+              <span>Current document: </span>
+              <strong>{currentDocument}</strong>
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={handleNewChat}
+          >
+            New chat
+          </button>
+        </div>
 
         <div className="upload-section">
-          <input
-            type="file"
-            accept="application/pdf"
-            onChange={(event) => setFile(event.target.files[0])}
-          />
+          <div className="file-row">
+            <label className="file-picker">
+              <span>Choose PDF</span>
+
+              <input
+                type="file"
+                accept="application/pdf"
+                onChange={(event) => setFile(event.target.files[0])}
+              />
+            </label>
+
+            {file && (
+              <span className="selected-file">
+                {file.name}
+              </span>
+            )}
+          </div>
 
           <button
             type="button"
@@ -174,28 +193,6 @@ const handleNewChat = async () => {
           )}
         </div>
 
-        {currentDocument && (
-          <div className="current-document">
-            <span>Current document:</span>
-            <strong>{currentDocument}</strong>
-          </div>
-        )}
-
-        <form className="question-form" onSubmit={handleSubmit}>
-          <textarea
-            value={question}
-            onChange={(event) => setQuestion(event.target.value)}
-            placeholder="Ask a question about the document..."
-            rows="3"
-          />
-
-          <button
-            type="submit"
-            disabled={loading || !question.trim()}
-          >
-            {loading ? "Thinking..." : "Ask"}
-          </button>
-        </form>
 
         <div className="messages">
           {messages.map((message, index) => (
@@ -223,6 +220,22 @@ const handleNewChat = async () => {
 
           <div ref={messagesEndRef} />
         </div>
+
+        <form className="question-form" onSubmit={handleSubmit}>
+          <textarea
+            value={question}
+            onChange={(event) => setQuestion(event.target.value)}
+            placeholder="Ask a question about the document..."
+            rows="3"
+          />
+
+          <button
+            type="submit"
+            disabled={loading || !question.trim()}
+          >
+            {loading ? "Thinking..." : "Ask"}
+          </button>
+        </form>
       </div>
     </main>
   );
