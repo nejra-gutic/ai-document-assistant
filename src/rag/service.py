@@ -1,5 +1,6 @@
 from src.rag.retriever import Retriever
 from src.rag.generator import build_prompt, Generator
+from src.rag.embedder import Embedder
 
 
 class RAGService:
@@ -10,9 +11,13 @@ class RAGService:
         uploaded_index_path: str | None = None,
         uploaded_metadata_path: str | None = None
     ):
+
+        self.embedder = Embedder()
+
         self.fixed_retriever = Retriever(
             index_path=fixed_index_path,
-            metadata_path=fixed_metadata_path
+            metadata_path=fixed_metadata_path,
+            embedder=self.embedder
         )
 
         self.uploaded_retriever = None
@@ -20,7 +25,8 @@ class RAGService:
         if uploaded_index_path and uploaded_metadata_path:
             self.uploaded_retriever = Retriever(
                 index_path=uploaded_index_path,
-                metadata_path=uploaded_metadata_path
+                metadata_path=uploaded_metadata_path,
+                embedder=self.embedder
             )
 
         self.generator = Generator()

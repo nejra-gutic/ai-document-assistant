@@ -1,27 +1,33 @@
-# AI Document Assistant
+# 🤖 AI Document Assistant
 
-A full-stack AI document assistant that allows users to upload PDF documents and ask questions about their content using a Retrieval-Augmented Generation (RAG) pipeline.
+A full-stack AI document assistant that allows users to upload PDF documents and ask questions about their content using **Retrieval-Augmented Generation (RAG)**.
 
-The application retrieves relevant parts of the document using semantic search and uses a large language model to generate answers grounded in the retrieved document context.
+The application uses semantic search to retrieve relevant parts of a document and provides them as context to a large language model, enabling answers grounded in the uploaded document.
 
-## Features
+![AI Document Assistant](docs/app-screenshot.png)
 
-- PDF document upload
-- Automatic text extraction from PDF files
-- Text chunking with overlapping chunks
-- Sentence-transformer embeddings
-- FAISS vector search
-- Retrieval-Augmented Generation (RAG)
-- Gemini-based answer generation
-- Conversation history for follow-up questions
-- Chat reset functionality
-- Loading and error states
-- React-based chat interface
-- FastAPI REST API
+## ✨ Features
 
-## How It Works
+- Upload and process PDF documents
+- Extract text automatically from uploaded PDFs
+- Split documents into overlapping text chunks
+- Generate semantic embeddings using Sentence Transformers
+- Store and search embeddings with FAISS
+- Retrieve document sections relevant to a user's question
+- Generate document-grounded answers using Google Gemini
+- Maintain conversation history for follow-up questions
+- Start a new conversation without reloading the application
+- Handle AI API rate limits and errors
+- Interactive React chat interface
+- REST API built with FastAPI
 
-The document processing pipeline:
+## 🧠 How It Works
+
+The application uses a Retrieval-Augmented Generation pipeline.
+
+### Document Processing
+
+When a PDF is uploaded:
 
 ```text
 PDF Upload
@@ -35,50 +41,57 @@ Embedding Generation
 FAISS Vector Index
 ```
 
+The document text is extracted and divided into smaller overlapping chunks. Each chunk is converted into a numerical embedding and stored in a FAISS vector index.
+
+### Question Answering
+
 When the user asks a question:
 
 ```text
 User Question
-    ↓
+      ↓
 Question Embedding
-    ↓
+      ↓
 FAISS Similarity Search
-    ↓
+      ↓
 Relevant Document Chunks
-    ↓
+      ↓
 Conversation History
-    ↓
+      ↓
 Prompt Construction
-    ↓
-Gemini
-    ↓
+      ↓
+Google Gemini
+      ↓
 Generated Answer
 ```
 
-This approach allows the language model to answer questions using information retrieved from the uploaded document instead of relying only on its general knowledge.
+The user's question is converted into an embedding and compared with the document embeddings.
 
-## Tech Stack
+The most relevant chunks are retrieved and included in the prompt together with recent conversation history. This allows the assistant to answer questions based on the document while also understanding follow-up questions.
+
+## 🛠️ Tech Stack
 
 ### Backend
 
-- Python
-- FastAPI
-- PyMuPDF
-- Sentence Transformers
-- FAISS
-- Google Gemini API
+- **Python**
+- **FastAPI** — REST API
+- **PyMuPDF** — PDF text extraction
+- **Sentence Transformers** — semantic embeddings
+- **FAISS** — vector similarity search
+- **Google Gemini API** — answer generation
 
 ### Frontend
 
-- React
-- JavaScript
-- CSS
-- Vite
+- **React**
+- **JavaScript**
+- **CSS**
+- **Vite**
 
-## Project Structure
+## 📁 Project Structure
 
 ```text
 ai-document-assistant/
+│
 ├── backend/
 │   └── main.py
 │
@@ -97,47 +110,77 @@ ai-document-assistant/
 │       └── vector_store.py
 │
 ├── data/
+├── docs/
+│   └── app-screenshot.png
+│
 ├── requirements.txt
 └── README.md
 ```
 
-## RAG Pipeline
+## 🔎 RAG Pipeline
 
-### 1. Document Processing
+### 1. PDF Text Extraction
 
-When a PDF is uploaded, the backend extracts its text using PyMuPDF.
+Uploaded PDF documents are processed with PyMuPDF and their textual content is extracted.
 
-The extracted text is split into smaller overlapping chunks so that relevant information can later be retrieved efficiently.
+### 2. Text Chunking
 
-### 2. Embeddings
+The extracted text is divided into smaller overlapping chunks.
 
-Each chunk is converted into a numerical vector representation using a Sentence Transformer embedding model.
+Using smaller chunks makes it possible to retrieve only the parts of the document that are relevant to a particular question, while overlap helps preserve context between neighboring chunks.
 
-### 3. Vector Search
+### 3. Embedding Generation
 
-The embeddings are stored in a FAISS index.
+Each text chunk is converted into a dense vector representation using a Sentence Transformer model.
 
-When a question is submitted, the question is also converted into an embedding and FAISS retrieves the document chunks that are semantically closest to the question.
+Semantically similar pieces of text therefore have embeddings that are close to each other in vector space.
 
-### 4. Answer Generation
+### 4. Vector Search
 
-The retrieved chunks are added to the prompt as document context.
+Document embeddings are stored in a FAISS index.
 
-Recent conversation history is also included so that the assistant can understand follow-up questions.
+When a user submits a question, the question is embedded using the same embedding model and FAISS searches for the closest document vectors.
 
-The final prompt is sent to Gemini, which generates an answer based on the retrieved context.
+### 5. Context Retrieval
 
-## API Endpoints
+The most relevant document chunks are retrieved and used as context for the language model.
 
-### Upload a document
+This is the **retrieval** part of the RAG pipeline.
+
+### 6. Answer Generation
+
+The retrieved context, current user question, and recent conversation history are combined into a prompt.
+
+The prompt is sent to Google Gemini, which generates the final answer using the retrieved document information.
+
+## 🔌 API Endpoints
+
+### Upload Document
 
 ```http
 POST /api/documents/upload
 ```
 
-Processes a PDF document, creates its embeddings and builds the FAISS index.
+Uploads and processes a PDF document.
 
-### Ask a question
+The backend:
+
+1. extracts the document text,
+2. creates text chunks,
+3. generates embeddings,
+4. creates a FAISS index,
+5. stores metadata required for retrieval.
+
+Example response:
+
+```json
+{
+  "filename": "example.pdf",
+  "number_of_chunks": 12
+}
+```
+
+### Ask Question
 
 ```http
 POST /api/chat
@@ -147,7 +190,7 @@ Example request:
 
 ```json
 {
-  "question": "What university did Nejra attend?"
+  "question": "What are the main requirements?"
 }
 ```
 
@@ -155,56 +198,93 @@ Example response:
 
 ```json
 {
-  "answer": "Istanbul Technical University."
+  "answer": "The main requirements are..."
 }
 ```
 
-### Reset conversation
+### Reset Conversation
 
 ```http
 POST /api/chat/reset
 ```
 
-Clears the current conversation history.
+Clears the current conversation history and starts a new chat.
 
-## Running the Project
+## 💬 Conversation History
 
-### Backend
+The assistant keeps recent question-answer pairs as conversation history.
 
-Create and activate a virtual environment:
+This allows follow-up questions such as:
+
+```text
+User:
+Where did she study?
+
+Assistant:
+She studied at Istanbul Technical University.
+
+User:
+What did she study there?
+```
+
+The second question can be interpreted using the previous conversation instead of being treated as a completely independent query.
+
+Conversation history is currently stored in application memory.
+
+Persistent conversation storage with PostgreSQL is planned as the next development step.
+
+## 🚀 Running the Project
+
+### 1. Clone the Repository
+
+```bash
+git clone <repository-url>
+cd ai-document-assistant
+```
+
+### 2. Create a Python Virtual Environment
 
 ```bash
 python -m venv .venv
+```
+
+Activate it on macOS/Linux:
+
+```bash
 source .venv/bin/activate
 ```
 
-Install dependencies:
+### 3. Install Backend Dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-Create a `.env` file and add:
+### 4. Configure Environment Variables
+
+Create a `.env` file in the project root:
 
 ```text
 GEMINI_API_KEY=your_api_key
 ```
 
-Start the FastAPI server:
+Do not commit the `.env` file to Git.
+
+### 5. Start the Backend
 
 ```bash
 uvicorn backend.main:app --reload
 ```
 
-The API will run locally on port `8000`.
+The backend will be available locally on port `8000`.
 
-FastAPI Swagger documentation is available at:
+FastAPI automatically provides interactive Swagger documentation at:
 
 ```text
 http://127.0.0.1:8000/docs
 ```
 
-### Frontend
+### 6. Start the Frontend
 
 Open another terminal:
 
@@ -214,36 +294,52 @@ npm install
 npm run dev
 ```
 
-The React application will run locally through Vite.
+Vite will start the React development server.
 
-## Current Status
+Open the address displayed in the terminal, typically:
 
-The core RAG workflow is functional:
+```text
+http://localhost:5173
+```
 
-- document upload
-- document processing
-- embedding generation
-- FAISS indexing
-- semantic retrieval
-- LLM answer generation
-- conversation history
+## 📌 Current Status
+
+The core application workflow is functional.
+
+Currently implemented:
+
+- PDF upload
+- PDF text extraction
+- Generic text chunking
+- Semantic embedding generation
+- FAISS vector indexing
+- Semantic document retrieval
+- RAG-based question answering
+- Gemini integration
+- Conversation history
+- Follow-up question support
+- Chat reset
+- API error handling
+- Loading states
 - React chat interface
 
-The next development step is persistent storage using PostgreSQL for documents, conversations, and chat messages.
+## 🗺️ Planned Improvements
 
-## Planned Improvements
+Future development will focus on:
 
-- PostgreSQL persistence
-- Persistent conversation history
+- PostgreSQL database integration
+- Persistent conversations and messages
+- Persistent document metadata
 - Multiple document support
 - User authentication
-- Improved document management
-- Source references in generated answers
+- Document management
+- Source references for generated answers
+- Improved retrieval and chunking strategies
 - Dockerized development environment
-- Deployment
+- Application deployment
 
-## Author
+## 👩‍💻 Author
 
 **Nejra Gutić**
 
-Computer Engineering graduate interested in software engineering, AI, NLP, and full-stack development.
+Computer Engineering graduate interested in software engineering, artificial intelligence, NLP, and full-stack development.

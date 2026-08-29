@@ -8,7 +8,8 @@ class Retriever:
     def __init__(
         self,
         index_path: str,
-        metadata_path: str
+        metadata_path: str,
+        embedder: Embedder
     ):
         # 1. Load metadata
         with open(
@@ -19,7 +20,7 @@ class Retriever:
             self.metadata = json.load(file)
 
         # 2. Load embedding model
-        self.embedder = Embedder()
+        self.embedder = embedder
 
         # 3. Load FAISS index
         self.vector_store = VectorStore(dimension=384)

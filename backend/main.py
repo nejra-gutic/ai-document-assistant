@@ -8,7 +8,7 @@ from src.rag.service import RAGService
 from fastapi.middleware.cors import CORSMiddleware
 
 from fastapi import UploadFile, File
-import fitz
+import pymupdf
 
 from src.rag.generic_chunker import split_into_chunks
 
@@ -16,6 +16,7 @@ import json
 
 from src.rag.embedder import Embedder
 from src.rag.vector_store import VectorStore
+from src.rag.retriever import Retriever
 
 
 app = FastAPI()
@@ -205,7 +206,7 @@ async def upload_document(file: UploadFile = File(...)):
 
     pdf_bytes = await file.read()
 
-    pdf = fitz.open(
+    pdf = pymupdf.open(
         stream=pdf_bytes,
         filetype="pdf"
     )
@@ -217,8 +218,7 @@ async def upload_document(file: UploadFile = File(...)):
 
     chunks = split_into_chunks(text)
 
-    embedder = Embedder()
-    embeddings = embedder.embed_texts(chunks)
+    embeddings = rag_service.embedder.embed_texts(chunks)
 
     vector_store = VectorStore(
         dimension=embeddings.shape[1]
@@ -249,11 +249,10 @@ async def upload_document(file: UploadFile = File(...)):
             indent=2
         )
 
-    rag_service = RAGService(
-        fixed_index_path="data/faiss.index",
-        fixed_metadata_path="data/metadata.json",
-        uploaded_index_path="data/uploaded_faiss.index",
-        uploaded_metadata_path="data/uploaded_metadata.json"
+    rag_service.uploaded_retriever = Retriever(
+        index_path="data/uploaded_faiss.index",
+        metadata_path="data/uploaded_metadata.json",
+        embedder=rag_service.embedder
     )
 
     return {
