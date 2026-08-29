@@ -33,6 +33,8 @@ app.add_middleware(
 
 models.Base.metadata.create_all(bind=engine)
 
+rag_service = None
+
 # --------------------------------------------------
 # Pydantic models
 # --------------------------------------------------
@@ -163,11 +165,16 @@ def delete_document(document_id: int):
     "/api/chat",
     response_model=ChatResponse
 )
+@app.post(
+    "/api/chat",
+    response_model=ChatResponse
+)
 def chat(request: ChatRequest):
-    rag_service = RAGService(
-        index_path="data/uploaded_faiss.index",
-        metadata_path="data/uploaded_metadata.json"
-    )
+    if rag_service is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Please upload a PDF first"
+        )
 
     answer = rag_service.ask_question(
         request.question,
@@ -178,9 +185,10 @@ def chat(request: ChatRequest):
         answer=answer
     )
 
-
 @app.post("/api/documents/upload")
 async def upload_document(file: UploadFile = File(...)):
+    global rag_service
+
     if file.content_type != "application/pdf":
         raise HTTPException(
             status_code=400,
@@ -202,7 +210,6 @@ async def upload_document(file: UploadFile = File(...)):
     chunks = split_into_chunks(text)
 
     embedder = Embedder()
-
     embeddings = embedder.embed_texts(chunks)
 
     vector_store = VectorStore(
@@ -233,6 +240,11 @@ async def upload_document(file: UploadFile = File(...)):
             ensure_ascii=False,
             indent=2
         )
+
+    rag_service = RAGService(
+        index_path="data/uploaded_faiss.index",
+        metadata_path="data/uploaded_metadata.json"
+    )
 
     return {
         "filename": file.filename,

@@ -34,7 +34,8 @@ Content:
     prompt = f"""
 You are a helpful assistant.
 
-Answer the user's question in Turkish using only the context below.
+Answer the user's question using only the context below.
+Respond in the same language as the user's question.
 
 Rules:
 - Give only the final answer.
