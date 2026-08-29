@@ -33,7 +33,10 @@ app.add_middleware(
 
 models.Base.metadata.create_all(bind=engine)
 
-rag_service = None
+rag_service = RAGService(
+    fixed_index_path="data/faiss.index",
+    fixed_metadata_path="data/metadata.json"
+)
 
 # --------------------------------------------------
 # Pydantic models
@@ -165,26 +168,31 @@ def delete_document(document_id: int):
     "/api/chat",
     response_model=ChatResponse
 )
-@app.post(
-    "/api/chat",
-    response_model=ChatResponse
-)
 def chat(request: ChatRequest):
-    if rag_service is None:
-        raise HTTPException(
-            status_code=400,
-            detail="Please upload a PDF first"
+    try:
+        answer = rag_service.ask_question(
+            request.question,
+            k=3
         )
 
-    answer = rag_service.ask_question(
-        request.question,
-        k=3
-    )
+        return ChatResponse(
+            answer=answer
+        )
 
-    return ChatResponse(
-        answer=answer
-    )
+    except Exception as error:
+        error_message = str(error)
 
+        if "429" in error_message or "too_many_requests" in error_message:
+            raise HTTPException(
+                status_code=429,
+                detail="AI service rate limit reached. Please try again shortly."
+            )
+
+        raise HTTPException(
+            status_code=500,
+            detail="Something went wrong while generating the answer."
+        )
+    
 @app.post("/api/documents/upload")
 async def upload_document(file: UploadFile = File(...)):
     global rag_service
@@ -242,8 +250,10 @@ async def upload_document(file: UploadFile = File(...)):
         )
 
     rag_service = RAGService(
-        index_path="data/uploaded_faiss.index",
-        metadata_path="data/uploaded_metadata.json"
+        fixed_index_path="data/faiss.index",
+        fixed_metadata_path="data/metadata.json",
+        uploaded_index_path="data/uploaded_faiss.index",
+        uploaded_metadata_path="data/uploaded_metadata.json"
     )
 
     return {

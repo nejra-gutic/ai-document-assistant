@@ -3,7 +3,7 @@ import "./App.css";
 
 function App() {
   const [question, setQuestion] = useState("");
-  const [answer, setAnswer] = useState("");
+  const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
   const [file, setFile] = useState(null);
   const [uploadMessage, setUploadMessage] = useState("");
@@ -42,37 +42,69 @@ function App() {
     }
   };
 
+
+
   const handleSubmit = async (event) => {
-    event.preventDefault();
+  event.preventDefault();
 
-    if (!question.trim()) {
-      return;
-    }
+  if (!question.trim()) {
+    return;
+  }
 
-    setLoading(true);
-    setAnswer("");
+  const currentQuestion = question;
 
-    try {
-      const response = await fetch("http://127.0.0.1:8000/api/chat", {
+  setMessages((previousMessages) => [
+    ...previousMessages,
+    {
+      role: "user",
+      content: currentQuestion,
+    },
+  ]);
+
+  setQuestion("");
+  setLoading(true);
+
+  try {
+    const response = await fetch(
+      "http://127.0.0.1:8000/api/chat",
+      {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          question: question,
+          question: currentQuestion,
         }),
-      });
+      }
+    );
 
-      const data = await response.json();
+    const data = await response.json();
 
-      setAnswer(data.answer);
-    } catch (error) {
-      console.error(error);
-      setAnswer("Something went wrong.");
-    } finally {
-      setLoading(false);
+    if (!response.ok) {
+      throw new Error(data.detail || "Something went wrong.");
     }
-  };
+
+    setMessages((previousMessages) => [
+      ...previousMessages,
+      {
+        role: "assistant",
+        content: data.answer,
+      },
+    ]);
+  } catch (error) {
+    console.error(error);
+
+    setMessages((previousMessages) => [
+      ...previousMessages,
+      {
+        role: "assistant",
+        content: error.message,
+      },
+    ]);
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <main className="app">
@@ -121,12 +153,30 @@ function App() {
           </button>
         </form>
 
-        {answer && (
-          <div className="answer-card">
-            <span className="answer-label">Answer</span>
-            <p>{answer}</p>
-          </div>
-        )}
+        <div className="messages">
+          {messages.map((message, index) => (
+            <div
+              key={index}
+              className={`message ${message.role}`}
+            >
+              <span className="message-label">
+                {message.role === "user" ? "You" : "Assistant"}
+              </span>
+
+              <p>{message.content}</p>
+            </div>
+          ))}
+
+          {loading && (
+            <div className="message assistant">
+              <span className="message-label">
+                Assistant
+              </span>
+
+              <p>Thinking...</p>
+            </div>
+          )}
+        </div>
       </div>
     </main>
   );

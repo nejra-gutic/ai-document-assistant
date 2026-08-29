@@ -1,20 +1,19 @@
-from src.rag.service import RAGService
+from src.rag.retriever import Retriever
 
 
-rag_service = RAGService(
+retriever = Retriever(
     index_path="data/uploaded_faiss.index",
     metadata_path="data/uploaded_metadata.json"
 )
 
-query = "What university did Nejra attend?"
+query = "Bir takım kaç kişiden oluşabilir?"
 
-answer = rag_service.ask_question(
+results = retriever.retrieve(
     query,
-    k=3
+    k=5
 )
 
-print("QUESTION:")
-print(query)
-
-print("\nANSWER:")
-print(answer)
+for i, result in enumerate(results, start=1):
+    print(f"\n--- RESULT {i} ---")
+    print("Distance:", result["distance"])
+    print(result["text"])
