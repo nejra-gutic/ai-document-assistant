@@ -11,14 +11,23 @@ def build_prompt(query: str, retrieved_results: list[dict]) -> str:
     context_parts = []
 
     for i, result in enumerate(retrieved_results, start=1):
-        context_parts.append(
-            f"""
+        if result.get("question") and result.get("answer"):
+            context_parts.append(
+                f"""
 Source {i}
-Section: {result["section"]}
+Section: {result.get("section", "")}
 Question: {result["question"]}
 Answer: {result["answer"]}
 """
-        )
+            )
+        else:
+            context_parts.append(
+                f"""
+Source {i}
+Content:
+{result["text"]}
+"""
+            )
 
     context = "\n".join(context_parts)
 
@@ -31,8 +40,7 @@ Rules:
 - Give only the final answer.
 - Do not add notes, explanations about your reasoning, or extra questions.
 - Do not repeat the user's question.
-- If different sections contain different answers, you MUST mention each section separately.
-- Do not choose one section and ignore the others.
+- If different sources contain different answers, mention the difference clearly.
 - If the answer is not in the context, say in Turkish that there is not enough information.
 
 CONTEXT:

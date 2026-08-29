@@ -7,6 +7,16 @@ from src.rag.service import RAGService
 
 from fastapi.middleware.cors import CORSMiddleware
 
+from fastapi import UploadFile, File
+import fitz
+
+from src.rag.generic_chunker import split_into_chunks
+
+import json
+
+from src.rag.embedder import Embedder
+from src.rag.vector_store import VectorStore
+
 
 app = FastAPI()
 
@@ -22,17 +32,6 @@ app.add_middleware(
 )
 
 models.Base.metadata.create_all(bind=engine)
-
-
-# --------------------------------------------------
-# RAG service
-# --------------------------------------------------
-
-rag_service = RAGService(
-    index_path="data/faiss.index",
-    metadata_path="data/metadata.json"
-)
-
 
 # --------------------------------------------------
 # Pydantic models
@@ -165,6 +164,11 @@ def delete_document(document_id: int):
     response_model=ChatResponse
 )
 def chat(request: ChatRequest):
+    rag_service = RAGService(
+        index_path="data/uploaded_faiss.index",
+        metadata_path="data/uploaded_metadata.json"
+    )
+
     answer = rag_service.ask_question(
         request.question,
         k=3
@@ -173,3 +177,64 @@ def chat(request: ChatRequest):
     return ChatResponse(
         answer=answer
     )
+
+
+@app.post("/api/documents/upload")
+async def upload_document(file: UploadFile = File(...)):
+    if file.content_type != "application/pdf":
+        raise HTTPException(
+            status_code=400,
+            detail="Only PDF files are allowed"
+        )
+
+    pdf_bytes = await file.read()
+
+    pdf = fitz.open(
+        stream=pdf_bytes,
+        filetype="pdf"
+    )
+
+    text = ""
+
+    for page in pdf:
+        text += page.get_text()
+
+    chunks = split_into_chunks(text)
+
+    embedder = Embedder()
+
+    embeddings = embedder.embed_texts(chunks)
+
+    vector_store = VectorStore(
+        dimension=embeddings.shape[1]
+    )
+
+    vector_store.add(embeddings)
+
+    vector_store.save(
+        "data/uploaded_faiss.index"
+    )
+
+    metadata = []
+
+    for chunk in chunks:
+        metadata.append({
+            "text": chunk
+        })
+
+    with open(
+        "data/uploaded_metadata.json",
+        "w",
+        encoding="utf-8"
+    ) as metadata_file:
+        json.dump(
+            metadata,
+            metadata_file,
+            ensure_ascii=False,
+            indent=2
+        )
+
+    return {
+        "filename": file.filename,
+        "number_of_chunks": len(chunks)
+    }

@@ -10,7 +10,7 @@ class Retriever:
         index_path: str,
         metadata_path: str
     ):
-        # 1. Učitaj metadata
+        # 1. Load metadata
         with open(
             metadata_path,
             "r",
@@ -18,18 +18,16 @@ class Retriever:
         ) as file:
             self.metadata = json.load(file)
 
-        # 2. Učitaj embedding model
+        # 2. Load embedding model
         self.embedder = Embedder()
 
-        # 3. Učitaj već napravljeni FAISS index
+        # 3. Load FAISS index
         self.vector_store = VectorStore(dimension=384)
         self.vector_store.load(index_path)
 
     def retrieve(self, query: str, k: int = 3) -> list[dict]:
-        # 4. Napravi embedding korisničkog pitanja
         query_embedding = self.embedder.embed_text(query)
 
-        # 5. Nađi k najsličnijih vektora
         distances, indices = self.vector_store.search(
             query_embedding,
             k=k
@@ -37,16 +35,15 @@ class Retriever:
 
         results = []
 
-        # 6. Preko FAISS indexa pronađi originalni Q&A
         for distance, index in zip(distances, indices):
-            qa = self.metadata[index]
+            item = self.metadata[index]
 
             results.append({
                 "distance": float(distance),
-                "section": qa["section"],
-                "question": qa["question"],
-                "answer": qa["answer"],
-                "text": qa["text"]
+                "section": item.get("section", ""),
+                "question": item.get("question", ""),
+                "answer": item.get("answer", ""),
+                "text": item["text"]
             })
 
         return results

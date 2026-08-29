@@ -182,3 +182,40 @@
     border-right-color: var(--border);
   }
 }
+
+.upload-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 24px;
+  padding: 20px;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+}
+
+.upload-section input[type="file"] {
+  font-size: 14px;
+}
+
+.upload-section button {
+  align-self: flex-start;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 18px;
+  background: #111827;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.upload-section button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.upload-section p {
+  margin: 0;
+  font-size: 14px;
+  color: #4b5563;
+}

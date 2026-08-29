@@ -5,6 +5,36 @@ function App() {
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState("");
   const [loading, setLoading] = useState(false);
+  const [file, setFile] = useState(null);
+  const [uploadMessage, setUploadMessage] = useState("");
+
+  const handleUpload = async () => {
+    if (!file) {
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const response = await fetch(
+        "http://127.0.0.1:8000/api/documents/upload",
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+
+      const data = await response.json();
+
+      setUploadMessage(
+        `${data.filename} uploaded successfully.`
+      );
+    } catch (error) {
+      console.error(error);
+      setUploadMessage("Upload failed.");
+    }
+  };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -47,6 +77,26 @@ function App() {
             Ask questions about your document and get answers based on its
             content.
           </p>
+        </div>
+
+        <div className="upload-section">
+          <input
+            type="file"
+            accept="application/pdf"
+            onChange={(event) => setFile(event.target.files[0])}
+          />
+
+          <button
+            type="button"
+            onClick={handleUpload}
+            disabled={!file}
+          >
+            Upload PDF
+          </button>
+
+          {uploadMessage && (
+            <p>{uploadMessage}</p>
+          )}
         </div>
 
         <form className="question-form" onSubmit={handleSubmit}>
