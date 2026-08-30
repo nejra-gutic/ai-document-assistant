@@ -2,7 +2,7 @@ import json
 
 import pymupdf
 
-from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi import FastAPI, HTTPException, UploadFile, File, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -18,6 +18,11 @@ from src.rag.langchain_service import (
     create_vector_store,
     create_retriever
 )
+
+from sqlalchemy.orm import Session
+
+from backend.database import SessionLocal
+
 
 
 app = FastAPI()
@@ -85,22 +90,18 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     answer: str
 
-
 # --------------------------------------------------
-# Temporary in-memory documents
+# Database Connection
 # --------------------------------------------------
 
-documents = [
-    {
-        "id": 1,
-        "name": "Company Handbook.pdf"
-    },
-    {
-        "id": 2,
-        "name": "University Regulations.pdf"
-    }
-]
 
+def get_db():
+    db = SessionLocal()
+
+    try:
+        yield db
+    finally:
+        db.close()
 
 # --------------------------------------------------
 # Home
@@ -118,20 +119,30 @@ def home():
 # --------------------------------------------------
 
 @app.get("/documents")
-def get_documents():
+def get_documents(
+    db: Session = Depends(get_db)
+):
+    documents = db.query(models.Document).all()
+
     return documents
 
 
 @app.get("/documents/{document_id}")
-def get_document(document_id: int):
-    for document in documents:
-        if document["id"] == document_id:
-            return document
+def get_document(
+    document_id: int,
+    db: Session = Depends(get_db)
+):
+    document = db.query(models.Document).filter(
+        models.Document.id == document_id
+    ).first()
 
-    raise HTTPException(
-        status_code=404,
-        detail="Document not found"
-    )
+    if not document:
+        raise HTTPException(
+            status_code=404,
+            detail="Document not found"
+        )
+
+    return document
 
 
 @app.post(
@@ -139,16 +150,16 @@ def get_document(document_id: int):
     status_code=201
 )
 def create_document(
-    document: DocumentCreate
+    document: DocumentCreate,
+    db: Session = Depends(get_db)
 ):
-    new_document = {
-        "id": len(documents) + 1,
-        "name": document.name
-    }
-
-    documents.append(
-        new_document
+    new_document = models.Document(
+        name=document.name
     )
+
+    db.add(new_document)
+    db.commit()
+    db.refresh(new_document)
 
     return new_document
 
@@ -156,55 +167,73 @@ def create_document(
 @app.put("/documents/{document_id}")
 def update_document(
     document_id: int,
-    document: DocumentUpdate
+    document: DocumentUpdate,
+    db: Session = Depends(get_db)
 ):
-    for existing_document in documents:
-        if existing_document["id"] == document_id:
-            existing_document["name"] = document.name
+    existing_document = db.query(models.Document).filter(
+        models.Document.id == document_id
+    ).first()
 
-            return existing_document
+    if not existing_document:
+        raise HTTPException(
+            status_code=404,
+            detail="Document not found"
+        )
 
-    raise HTTPException(
-        status_code=404,
-        detail="Document not found"
-    )
+    existing_document.name = document.name
+
+    db.commit()
+    db.refresh(existing_document)
+
+    return existing_document
 
 
 @app.patch("/documents/{document_id}")
 def partially_update_document(
     document_id: int,
-    document: DocumentUpdate
+    document: DocumentUpdate,
+    db: Session = Depends(get_db)
 ):
-    for existing_document in documents:
-        if existing_document["id"] == document_id:
-            existing_document["name"] = document.name
+    existing_document = db.query(models.Document).filter(
+        models.Document.id == document_id
+    ).first()
 
-            return existing_document
+    if not existing_document:
+        raise HTTPException(
+            status_code=404,
+            detail="Document not found"
+        )
 
-    raise HTTPException(
-        status_code=404,
-        detail="Document not found"
-    )
+    if document.name is not None:
+        existing_document.name = document.name
+
+    db.commit()
+    db.refresh(existing_document)
+
+    return existing_document
 
 
 @app.delete("/documents/{document_id}")
 def delete_document(
-    document_id: int
+    document_id: int,
+    db: Session = Depends(get_db)
 ):
-    for document in documents:
-        if document["id"] == document_id:
-            documents.remove(
-                document
-            )
+    existing_document = db.query(models.Document).filter(
+        models.Document.id == document_id
+    ).first()
 
-            return {
-                "message": "Document deleted successfully"
-            }
+    if not existing_document:
+        raise HTTPException(
+            status_code=404,
+            detail="Document not found"
+        )
 
-    raise HTTPException(
-        status_code=404,
-        detail="Document not found"
-    )
+    db.delete(existing_document)
+    db.commit()
+
+    return {
+        "message": "Document deleted successfully"
+    }
 
 
 # --------------------------------------------------
@@ -257,7 +286,8 @@ def chat(
 
 @app.post("/api/documents/upload")
 async def upload_document(
-    file: UploadFile = File(...)
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db)
 ):
     if file.content_type != "application/pdf":
         raise HTTPException(
@@ -297,6 +327,14 @@ async def upload_document(
     )
 
     rag_service.history = []
+
+    new_document = models.Document(
+    name=file.filename
+)
+
+    db.add(new_document)
+    db.commit()
+    db.refresh(new_document)
     
     return {
         "filename": file.filename,
@@ -315,3 +353,4 @@ def reset_chat():
     return {
         "message": "Chat history cleared"
     }
+
