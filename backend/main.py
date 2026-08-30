@@ -84,11 +84,15 @@ class DocumentUpdate(BaseModel):
 
 
 class ChatRequest(BaseModel):
+    conversation_id: int
     question: str
 
 
 class ChatResponse(BaseModel):
     answer: str
+
+class ConversationResponse(BaseModel):
+    id: int
 
 # --------------------------------------------------
 # Database Connection
@@ -239,22 +243,74 @@ def delete_document(
 # --------------------------------------------------
 # RAG Chat
 # --------------------------------------------------
+@app.post(
+    "/api/conversations",
+    response_model=ConversationResponse,
+    status_code=201
+)
+def create_conversation(
+    db: Session = Depends(get_db)
+):
+    conversation = models.Conversation()
+
+    db.add(conversation)
+    db.commit()
+    db.refresh(conversation)
+
+    return ConversationResponse(
+        id=conversation.id
+    )
+
 
 @app.post(
     "/api/chat",
     response_model=ChatResponse
 )
 def chat(
-    request: ChatRequest
+    request: ChatRequest,
+    db: Session = Depends(get_db)
 ):
     try:
+        conversation = db.query(
+            models.Conversation
+        ).filter(
+            models.Conversation.id == request.conversation_id
+        ).first()
+
+        if not conversation:
+            raise HTTPException(
+                status_code=404,
+                detail="Conversation not found"
+            )
+
+        user_message = models.Message(
+            conversation_id=request.conversation_id,
+            role="user",
+            content=request.question
+        )
+
+        db.add(user_message)
+        db.commit()
+
         answer = rag_service.ask_question(
             request.question
         )
 
+        assistant_message = models.Message(
+            conversation_id=request.conversation_id,
+            role="assistant",
+            content=answer
+        )
+
+        db.add(assistant_message)
+        db.commit()
+
         return ChatResponse(
             answer=answer
         )
+
+    except HTTPException:
+        raise
 
     except Exception as error:
         error_message = str(error)
