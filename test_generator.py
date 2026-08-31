@@ -1,5 +1,5 @@
 from src.rag.retriever import Retriever
-from src.rag.generator import build_prompt, Generator
+from rag.generator_localModel import build_prompt, Generator
 
 
 retriever = Retriever(
