@@ -5,7 +5,7 @@ from langchain_core.embeddings import Embeddings
 from src.rag.embedder import Embedder
 from src.rag.generator import Generator, build_prompt
 
-from src.rag.generic_chunker import split_into_chunks
+from src.rag.structure_chunker import create_structured_chunks
 
 
 class LangChainEmbeddings(Embeddings):
@@ -78,9 +78,15 @@ def create_page_documents(
     documents = []
 
     for item in page_texts:
-        chunks = split_into_chunks(
+        chunks = create_structured_chunks(
             item["text"]
         )
+
+        print(f"\nPAGE {item['page']} - {len(chunks)} TEXT CHUNKS")
+
+        for i, chunk in enumerate(chunks, start=1):
+            print(f"\n--- CHUNK {i} ({len(chunk)} characters) ---")
+            print(chunk)
 
         for chunk in chunks:
             documents.append(
