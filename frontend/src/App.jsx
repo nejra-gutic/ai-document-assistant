@@ -10,6 +10,7 @@ function App() {
   const [uploading, setUploading] = useState(false);
   const [currentDocument, setCurrentDocument] = useState(null);
   const messagesEndRef = useRef(null);
+  const [conversationId, setConversationId] = useState(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({
@@ -54,6 +55,20 @@ function App() {
     }
   };
 
+const createConversation = async () => {
+  const response = await fetch(
+    "http://127.0.0.1:8000/api/conversations",
+    {
+      method: "POST",
+    }
+  );
+
+  const data = await response.json();
+
+  setConversationId(data.id);
+
+  return data.id;
+};
 
 
   const handleSubmit = async (event) => {
@@ -77,6 +92,13 @@ function App() {
   setLoading(true);
 
   try {
+
+    let id = conversationId;
+
+    if (!id) {
+      id = await createConversation();
+    }
+
     const response = await fetch(
       "http://127.0.0.1:8000/api/chat",
       {
@@ -85,6 +107,7 @@ function App() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
+          conversation_id: id,
           question: currentQuestion,
         }),
       }
@@ -129,6 +152,7 @@ const handleNewChat = async () => {
 
     setMessages([]);
     setQuestion("");
+    setConversationId(null);
   } catch (error) {
     console.error(error);
   }

@@ -1,4 +1,5 @@
 import os
+import base64
 
 from dotenv import load_dotenv
 from google import genai
@@ -86,6 +87,40 @@ class Generator:
         self.client = genai.Client(
             api_key=api_key
         )
+
+    def describe_image(
+        self,
+        image_path: str,
+        mime_type: str = "image/png"
+    ) -> str:
+
+        with open(image_path, "rb") as image_file:
+            image_bytes = image_file.read()
+
+        image_base64 = base64.b64encode(
+            image_bytes
+        ).decode("utf-8")
+
+        interaction = self.client.interactions.create(
+            model="gemini-3.6-flash",
+            input=[
+                {
+                    "type": "image",
+                    "data": image_base64,
+                    "mime_type": mime_type
+                },
+                {
+                    "type": "text",
+                    "text": (
+                        "Describe this image in detail. "
+                        "If it is a chart, include all important values, labels, "
+                        "and relationships. If it is a diagram, explain its structure."
+                    )
+                }
+            ]
+        )
+
+        return interaction.output_text.strip()
 
     def generate(self, prompt: str) -> str:
         interaction = self.client.interactions.create(

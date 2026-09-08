@@ -52,6 +52,23 @@ def create_qa_documents(
 
     return documents
 
+def create_image_documents(
+    descriptions: list[str]
+) -> list[Document]:
+    documents = []
+
+    for description in descriptions:
+        documents.append(
+            Document(
+                page_content=description,
+                metadata={
+                    "source_type": "image"
+                }
+            )
+        )
+
+    return documents
+
 
 def create_vector_store(
     documents: list[Document],

@@ -219,3 +219,5 @@ __marimo__/
 
 data/
 .DS_Store
+
+page_*_image_*.png

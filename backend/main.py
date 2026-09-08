@@ -5,6 +5,7 @@ import pymupdf
 from fastapi import FastAPI, HTTPException, UploadFile, File, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from src.rag.generator import Generator
 
 from backend.database import engine
 from backend import models
@@ -16,7 +17,8 @@ from src.rag.langchain_service import (
     create_qa_documents,
     create_documents,
     create_vector_store,
-    create_retriever
+    create_retriever,
+    create_image_documents
 )
 
 from sqlalchemy.orm import Session
@@ -360,15 +362,58 @@ async def upload_document(
 
     text = ""
 
-    for page in pdf:
+    image_descriptions = []
+
+    for page_number, page in enumerate(pdf):
         text += page.get_text()
+
+        images = page.get_images(full=True)
+
+        print(
+            f"Page {page_number + 1}: {len(images)} images"
+        )
+
+        for image_number, image in enumerate(images):
+            xref = image[0]
+
+            image_info = pdf.extract_image(xref)
+            image_bytes = image_info["image"]
+            image_extension = image_info["ext"]
+
+            filename = (
+                f"page_{page_number + 1}_"
+                f"image_{image_number + 1}.{image_extension}"
+            )
+
+            with open(filename, "wb") as image_file:
+                image_file.write(image_bytes)
+
+            generator = Generator()
+
+            description = generator.describe_image(
+                filename
+            )
+
+            image_descriptions.append(description)
+
+            print("IMAGE DESCRIPTION:")
+            print(description)
 
     chunks = split_into_chunks(
         text
     )
 
-    uploaded_documents = create_documents(
+    text_documents = create_documents(
         chunks
+    )
+
+    image_documents = create_image_documents(
+        image_descriptions
+    )
+
+    uploaded_documents = (
+        text_documents
+        + image_documents
     )
 
     uploaded_vector_store = create_vector_store(
@@ -385,13 +430,13 @@ async def upload_document(
     rag_service.history = []
 
     new_document = models.Document(
-    name=file.filename
-)
+        name=file.filename
+    )
 
     db.add(new_document)
     db.commit()
     db.refresh(new_document)
-    
+
     return {
         "filename": file.filename,
         "number_of_chunks": len(chunks)
