@@ -5,6 +5,8 @@ from langchain_core.embeddings import Embeddings
 from src.rag.embedder import Embedder
 from src.rag.generator import Generator, build_prompt
 
+from src.rag.generic_chunker import split_into_chunks
+
 
 class LangChainEmbeddings(Embeddings):
     def __init__(self, embedder: Embedder):
@@ -53,19 +55,43 @@ def create_qa_documents(
     return documents
 
 def create_image_documents(
-    descriptions: list[str]
+    image_descriptions: list[dict]
 ) -> list[Document]:
     documents = []
 
-    for description in descriptions:
+    for item in image_descriptions:
         documents.append(
             Document(
-                page_content=description,
+                page_content=item["description"],
                 metadata={
-                    "source_type": "image"
+                    "source_type": "image",
+                    "page": item["page"]
                 }
             )
         )
+
+    return documents
+
+def create_page_documents(
+    page_texts: list[dict]
+) -> list[Document]:
+    documents = []
+
+    for item in page_texts:
+        chunks = split_into_chunks(
+            item["text"]
+        )
+
+        for chunk in chunks:
+            documents.append(
+                Document(
+                    page_content=chunk,
+                    metadata={
+                        "source_type": "text",
+                        "page": item["page"]
+                    }
+                )
+            )
 
     return documents
 
@@ -167,6 +193,12 @@ class LangChainRAGService:
         query: str
     ) -> str:
         documents = self.retrieve(query)
+
+        for document in documents:
+            print(
+                "RETRIEVED:",
+                document.metadata
+            )
 
         retrieved_results = []
 

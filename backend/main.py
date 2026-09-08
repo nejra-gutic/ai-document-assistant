@@ -18,7 +18,8 @@ from src.rag.langchain_service import (
     create_documents,
     create_vector_store,
     create_retriever,
-    create_image_documents
+    create_image_documents,
+    create_page_documents,
 )
 
 from sqlalchemy.orm import Session
@@ -35,6 +36,8 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:5173",
         "http://127.0.0.1:5173",
+        "http://localhost:5174",
+        "http://127.0.0.1:5174",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -360,12 +363,15 @@ async def upload_document(
         filetype="pdf"
     )
 
-    text = ""
+    page_texts = []
 
     image_descriptions = []
 
     for page_number, page in enumerate(pdf):
-        text += page.get_text()
+        page_texts.append({
+            "text": page.get_text(),
+            "page": page_number + 1
+        })
 
         images = page.get_images(full=True)
 
@@ -394,17 +400,16 @@ async def upload_document(
                 filename
             )
 
-            image_descriptions.append(description)
+            image_descriptions.append({
+                "description": description,
+                "page": page_number + 1
+            })
 
             print("IMAGE DESCRIPTION:")
             print(description)
 
-    chunks = split_into_chunks(
-        text
-    )
-
-    text_documents = create_documents(
-        chunks
+    text_documents = create_page_documents(
+        page_texts
     )
 
     image_documents = create_image_documents(
@@ -415,6 +420,7 @@ async def upload_document(
         text_documents
         + image_documents
     )
+
 
     uploaded_vector_store = create_vector_store(
         documents=uploaded_documents,
@@ -439,8 +445,11 @@ async def upload_document(
 
     return {
         "filename": file.filename,
-        "number_of_chunks": len(chunks)
+        "text_chunks": len(text_documents),
+        "image_chunks": len(image_documents),
+        "total_chunks": len(uploaded_documents)
     }
+    
 
 
 # --------------------------------------------------
